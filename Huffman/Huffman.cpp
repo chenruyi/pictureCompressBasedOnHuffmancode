@@ -2,6 +2,7 @@
 #include<string>
 #include<iostream>
 #include<stdlib.h>
+using namespace std;
 bool Select(HuffmanTree HT, int n, int & s1, int & s2)
 {
 	int i = 1, s3;
@@ -70,29 +71,35 @@ bool HuffmanCodeing(HuffmanTree & HT, HuffmanCode & HC, int * w, int n)
 	}
 	//testHufTree(HT);
 	HC = (HuffmanCode)malloc(( n + 1 ) * sizeof(char *));
-	HuffmanCoding(HC, HT);
+	//HuffmanCoding(HC, HT);
 
 
-	//////从叶子到跟的逆向求每个字符的赫夫曼编码
-	//HC = (HuffmanCode)malloc((n + 1) * sizeof(char *));
-	//if (HC == NULL) { printf("空间分配失败"); }
-	//char *cd;
-	//cd = (char *)malloc(n * sizeof(char));
-	//cd[n - 1] = '\0';
-	//
-	//for (i = 1; i <= n; i++) {
-	//	int start = n - 1;
-	//	int c, f;
-	//	for (c = i, f = HT[i].parent; f != 0; c = f, f = HT[f].parent)
-	//		//从叶子到跟逆向求编码
-	//		if (HT[f].lchild == c) cd[--start] = '0';
-	//		else cd[--start] = '1';
-	//		
-	//		HC[i] = (char *)malloc((n - start) * sizeof(char));
-	//		if (HC[i] == NULL) { printf("空间分配失败"); }
-	//		strcpy_s(HC[i],512,&cd[start]); //(HC[i], cd[start]);
-	//}
-	//free(cd);
+	////从叶子到跟的逆向求每个字符的赫夫曼编码,0号单元未用
+	HC = (HuffmanCode)malloc((n + 1) * sizeof(char *));
+	if (HC == NULL) { printf("空间分配失败"); }
+	char *cd;
+	cd = (char *)malloc(n * sizeof(char));
+	cd[n - 1] = '\0';
+	static int pos = 0;
+	for (i = 1; i <= n; i++) {
+		int start = n - 1;
+		int c, f;
+		for (c = i, f = HT[i].parent; f != 0; c = f, f = HT[f].parent)
+			//从叶子到跟逆向求编码
+			if (HT[f].lchild == c) cd[--start] = '0';
+			else cd[--start] = '1';
+			
+			HC[i] = (char *)malloc((n - start) * sizeof(char)); 
+		if (HC[i] == NULL) { printf("空间分配失败"); }
+			
+		for (int j = 0; j < n-start; j++)
+			{
+				HC[i][j] = cd[j+start];				
+			}
+		
+		
+	}
+	
 	//TestHufCode(0, HT, HC);
 	return true;
 }
@@ -152,7 +159,7 @@ int HuffmanCoding(HuffmanCode & pHC, HuffmanTree & pHT)
 void testHufTree(HuffmanTree HT)
 {
 
-	std::cout << " " << "\t" << "权值" << "\t" << "父节点" << "\t" << "左孩子" << "右孩子" <<std::endl;
+	std::cout << "\n " << "\t" << "权值" << "\t" << "父节点" << "\t" << "左孩子" << "右孩子" <<std::endl;
 	for (int i = 1; i < 512; i++)
 	{
 

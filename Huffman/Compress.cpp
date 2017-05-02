@@ -1,7 +1,6 @@
 #include "Compress.h"
-
 #include<string>
-#include<cstring>
+
 #include<iostream>
 #include<fstream>
 using namespace std;
@@ -10,20 +9,23 @@ int InitHead(const char * pFileName, HEAD & sHead)
 	//初始化文件头
 	strcpy_s(sHead.type, "HUF");//文件类型
 	sHead.length = 0;
-	for (int i = 0; i < SIZE; i++)
+	for (int i = 0; i < 256; i++)
 	{
 		sHead.weight[i] = 0;
 	}
-	ifstream fin(pFileName, ios::in | ios::binary);
+	ifstream filein1(pFileName, ios::in | ios::binary);
 	int ch;
-	while (!fin.eof())
+	while (true)
 	{
-		ch = fin.get();
+		ch = filein1.get();
+		if (filein1.eof())	break;
+		
 		sHead.weight[ch]++;
 		sHead.length++;
 	}
-	fin.close();
-	return 0;
+	filein1.clear();
+	filein1.close();
+	return 1;
 }
 char Str2byte(const char * pBinStr)
 {
@@ -39,45 +41,37 @@ char Str2byte(const char * pBinStr)
 	return b;
 }
 
-int Compress(const char * pFilename)
+bool Compress(const char * pFilename)
 {
 	HuffmanTree pHT;
 	HuffmanCode pHC;
-	
+	ifstream fin2(pFilename, ios::in | ios::binary);
 	int weight[256] = { 0 };
-	int ch ;
-	
-	
-	//////哈夫曼编码
-	//FILE *in; fopen_s(&in, pFilename, "rb");
-	//while ((ch = fgetc(in)) != EOF)
-	//{
-	//	weight[ch++];
-	//}
-	//fclose(in);
-	ifstream fin(pFilename, ios::in | ios::binary);
-	while (!fin.eof())
+	int ch ;	
+	while (true)
 	{
-		ch=fin.get();
-		weight[ch]++;
-		
+		ch = fin2.get();
+		if (fin2.eof())	break;
+		weight[ch]++;		
 	}
-	fin.close();
+	fin2.clear();
+	fin2.close();
 	
-	//HuffmanCodeing(pHT, pHC, weight, 256);
 	HuffmanCodeing(pHT, pHC, weight, 256);
-	//TestHufCode(0, pHT, pHC);
-	//cout << pHC[0][0];
+	int plength=0;
 	//计算缓冲区大小
-	int nSize = 0;
+	static int nSize = 0;
 	for (int i = 0; i < 256; i++)
 	{
 		nSize += weight[i] * strlen(pHC[i+1]);
+		plength += weight[i] * 8;
 	}
+	plength = plength / 8;
 	nSize = (nSize % 8) ? nSize / 8 + 1 : nSize / 8;
-
+	
 	//压缩编码
-	char *pBuffer=NULL ;
+	static char *pBuffer = (char *)malloc(nSize * sizeof(char));
+	
 	Encode(pFilename, pHC, pBuffer, nSize);
 	if (!pBuffer)
 	{
@@ -89,15 +83,19 @@ int Compress(const char * pFilename)
 		int len= WriteFile(pFilename, filehead, pBuffer, nSize);
 		if (len>0)
 		{
-			cout << "文件大小：" << len << "字节" << endl;
+			cout << "原文件大小：" << plength << "字节" << endl;
+			cout << "压缩后文件大小：" << len << "字节" << endl;
+			cout << "压缩比：" << (plength - len)*100.0 / plength <<"%"<< endl;
+			
 		}
 	}
-	return 1;
+
+	return true;
 }
 
 int Encode(const char * pFilename, const HuffmanCode pHC, char * &pBuffer, const int nSize)
 {
-	pBuffer = (char *)malloc(nSize * sizeof(char));
+	ifstream filein3(pFilename, ios::in | ios::binary);
 	if (!pBuffer)
 	{
 		std::cerr << "开辟缓冲区失败 " << std::endl;
@@ -106,36 +104,32 @@ int Encode(const char * pFilename, const HuffmanCode pHC, char * &pBuffer, const
 	char cd[SIZE] = { 0 };
 	int pos = 0;//缓冲区指针
 	int ch;
-	ifstream fin(pFilename, ios::in | ios::binary);
-	while (!fin.eof())
+	
+	while (!filein3.eof())
 	{
-		ch = fin.get();
+		ch = filein3.get();
 		 if (ch ==-1 ) 
 			 continue;
-		for (int i = 0; i <= 256; i++)
-		{
-			
-			cd[i] = pHC[ch+1][i];
-		}
-		//if (ch >= 255)
-		//	cout << ch << "   " << cd<<endl;
-		//strcat_s(cd, pHC[ch]);
-		//strcpy_s(cd, pHC[ch]);
+		strcat_s(cd, pHC[ch+1]);
 		
 		while (strlen(cd) >= 8)
 		{
 			pBuffer[pos++] = Str2byte(cd);
+			
 			for (int i = 0; i < SIZE - 8; i++)
 			{
 				cd[i] = cd[i + 8];
 			}
 		}
 	}
+	filein3.clear();
+	filein3.close();
+
 	if (strlen(cd) > 0)
 	{
 		pBuffer[pos++] = Str2byte(cd);
+		
 	}
-	fin.close();
 	
 	return 1;
 }
@@ -146,13 +140,19 @@ int WriteFile(const char * pFilename, const HEAD sHead, const char* pBuffer, con
 	strcpy_s(filename, pFilename);
 	strcat_s(filename, ".buf");
 
-	ofstream fout(filename, ios::app|ios::binary);
+	ofstream fileout1(filename, ios::app|ios::binary);
 	
-	fout.write((char*)&sHead, sizeof(HEAD));
-	fout.write(pBuffer, sizeof(char));
-	fout.close();
+	fileout1.write((char*)&sHead, sizeof(HEAD));
+	for (int i = 0; i <=nSize; i++)
+	{
+		fileout1.write((char*)& pBuffer[i], sizeof(pBuffer[i]));
+	}
+	fileout1.clear();
+	fileout1.close();
+	
 	cout << "生成压缩文件：" << filename << endl;
+
 	int len = sizeof(HEAD) + strlen(pFilename) + 1 + nSize;
 	return len;
-	return 0;
+	
 }
